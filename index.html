@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ChronoClass">
+<meta name="theme-color" content="#080810">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icon-152.png">
+<link rel="apple-touch-icon" sizes="120x120" href="icon-120.png">
+<link rel="apple-touch-icon" sizes="76x76"   href="icon-76.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<title>ChronoClass</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#080810; --s1:#10101c; --s2:#181828; --s3:#20203a;
+  --b1:rgba(255,255,255,.07); --b2:rgba(255,255,255,.13);
+  --cyan:#00e5ff; --orng:#ff6b35; --grn:#a8ff3e; --red:#ff3d5a;
+  --tx:#eeeef8; --tx2:rgba(238,238,248,.6); --tx3:rgba(238,238,248,.3);
+  --st:env(safe-area-inset-top,0px); --sb:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased}
+
+#shell{position:relative;z-index:1;display:flex;flex-direction:column;height:100dvh;padding-top:var(--st)}
+#zone-pages{flex:1;overflow:hidden;position:relative}
+.ecran{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity .25s;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
+.ecran.visible{opacity:1;pointer-events:all}
+
+/* NAV */
+#nav-bas{flex-shrink:0;display:flex;background:var(--s1);border-top:1px solid var(--b2);padding-bottom:var(--sb)}
+#nav-bas button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--tx3);font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:10px 4px 12px;position:relative;transition:color .2s}
+#nav-bas button svg{width:22px;height:22px;stroke-width:1.8}
+#nav-bas button.sel{color:var(--cyan)}
+#nav-bas button:nth-child(2).sel{color:var(--orng)}
+#nav-bas button:nth-child(3).sel{color:var(--grn)}
+#nav-bas button.sel::after{content:'';position:absolute;top:0;left:20%;right:20%;height:2px;background:currentColor;border-radius:0 0 3px 3px}
+
+/* BOUTONS */
+.btn{border:none;border-radius:50px;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:700;letter-spacing:.05em;display:inline-flex;align-items:center;gap:7px;transition:transform .1s,box-shadow .2s;white-space:nowrap}
+.btn:active{transform:scale(.91)!important}
+.bxl{font-size:17px;padding:18px 48px}
+.blg{font-size:15px;padding:14px 32px}
+.bmd{font-size:13px;padding:10px 20px}
+.bsm{font-size:12px;padding:8px 14px}
+.bcyan{background:var(--cyan);color:#000;box-shadow:0 0 28px rgba(0,229,255,.4)}
+.borng{background:var(--orng);color:#fff;box-shadow:0 0 22px rgba(255,107,53,.35)}
+.bgrn{background:var(--grn);color:#000;box-shadow:0 0 20px rgba(168,255,62,.3)}
+.bghost{background:var(--s2);color:var(--tx2);border:1px solid var(--b2)}
+.bred{background:rgba(255,61,90,.12);color:var(--red);border:1px solid rgba(255,61,90,.3)}
+
+/* TOAST */
+#msg-toast{position:fixed;top:calc(var(--st) + 16px);left:50%;transform:translateX(-50%) translateY(-80px);background:var(--s2);border:1px solid var(--b2);color:var(--grn);padding:10px 22px;border-radius:24px;font-size:13px;font-weight:700;z-index:500;pointer-events:none;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;white-space:nowrap;opacity:0;box-shadow:0 4px 24px rgba(0,0,0,.5)}
+#msg-toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+/* ===== ÉCRAN GÉANT ===== */
+#ecran-geant{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:radial-gradient(ellipse 70% 60% at 50% 45%,#0c0c22 0%,var(--bg) 100%)}
+.logo-app{width:clamp(52px,11vw,88px);height:clamp(52px,11vw,88px);border-radius:18px;margin-bottom:12px;object-fit:contain;filter:drop-shadow(0 0 14px rgba(0,229,255,.45));animation:logoBreathe 3s ease-in-out infinite alternate}
+@keyframes logoBreathe{from{filter:drop-shadow(0 0 10px rgba(0,229,255,.3))}to{filter:drop-shadow(0 0 22px rgba(0,229,255,.65))}}
+.g-titre{font-family:'Bebas Neue',cursive;font-size:clamp(13px,2.5vw,20px);letter-spacing:.35em;color:var(--tx3);margin-bottom:6px}
+#g-temps{font-family:'Bebas Neue',cursive;font-size:clamp(88px,23vw,210px);line-height:.9;color:var(--cyan);text-shadow:0 0 60px rgba(0,229,255,.35);transition:color .3s,text-shadow .3s;text-align:center}
+#g-temps.stop{color:var(--tx2);text-shadow:none}
+#g-temps.run{animation:gPulse 1s ease-in-out infinite alternate}
+@keyframes gPulse{from{text-shadow:0 0 40px rgba(0,229,255,.3)}to{text-shadow:0 0 80px rgba(0,229,255,.55),0 0 160px rgba(0,229,255,.2)}}
+#g-cs{font-family:'DM Mono',monospace;font-size:clamp(30px,7vw,68px);color:rgba(0,229,255,.45);margin-top:-4px}
+#g-etat{font-family:'Bebas Neue',cursive;font-size:clamp(14px,2.8vw,22px);letter-spacing:.3em;min-height:28px;margin-top:10px;color:var(--tx3)}
+.g-ctrl{display:flex;gap:14px;margin-top:36px;flex-wrap:wrap;justify-content:center}
+
+/* ===== ÉCRAN ARRIVÉES ===== */
+#ecran-arr{display:flex;flex-direction:column}
+.arr-haut{flex-shrink:0;background:var(--s1);border-bottom:1px solid var(--b2);padding:14px 16px 12px}
+.arr-ligne1{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+#arr-temps{font-family:'DM Mono',monospace;font-size:clamp(42px,10vw,74px);color:var(--orng);text-shadow:0 0 28px rgba(255,107,53,.35);flex:1;min-width:180px;line-height:1}
+.arr-ctrl{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.arr-onglets{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.ong{padding:6px 14px;border-radius:20px;border:1px solid var(--b2);background:none;color:var(--tx3);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s}
+.ong.sel{background:var(--orng);color:#fff;border-color:var(--orng)}
+#ong-vocal.vocal-on{background:var(--red);color:#fff;border-color:var(--red)}
+.min-zone{display:none;margin-top:10px;align-items:center;gap:10px;flex-wrap:wrap}
+.min-zone.show{display:flex}
+.min-champ{background:var(--s2);border:1px solid var(--b2);border-radius:10px;color:var(--tx);font-family:'DM Mono',monospace;font-size:22px;padding:8px 12px;width:72px;text-align:center;outline:none}
+.min-lbl{color:var(--tx3);font-size:13px}
+.barre-prog{height:3px;background:var(--b1);margin-top:10px;border-radius:2px;overflow:hidden;display:none}
+.barre-prog.show{display:block}
+#barre-fill{height:100%;width:100%;background:var(--orng);box-shadow:0 0 8px var(--orng);border-radius:2px;transition:width .1s linear,background .3s}
+.arr-entete{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 4px;flex-shrink:0}
+#arr-ttl{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--tx3)}
+.arr-droite{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#arr-liste{flex:1;overflow-y:auto;padding:6px 16px 20px;-webkit-overflow-scrolling:touch}
+.arr-vide{text-align:center;color:var(--tx3);padding:56px 20px}
+.arr-vide-ico{font-size:44px;margin-bottom:12px}
+.arr-vide p{font-size:14px;line-height:1.75}
+.arr-item{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--s1);border:1px solid var(--b1);border-radius:14px;margin-bottom:7px;animation:glisse .22s ease}
+@keyframes glisse{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.arr-rang{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',cursive;font-size:15px;flex-shrink:0}
+.r1{background:#FFD700;color:#000}.r2{background:#C0C0C0;color:#000}.r3{background:#CD7F32;color:#fff}.rn{background:var(--s2);color:var(--tx2);font-size:13px}
+.arr-t{font-family:'DM Mono',monospace;font-size:17px;font-weight:500;color:var(--orng);min-width:92px}
+.arr-prenom{flex:1;background:none;border:none;color:var(--tx);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:500;outline:none;border-bottom:1px solid transparent;transition:border-color .2s}
+.arr-prenom:focus{border-color:var(--b2)}
+.arr-prenom::placeholder{color:var(--tx3)}
+.arr-sup{background:none;border:none;cursor:pointer;color:var(--tx3);font-size:20px;line-height:1;padding:2px 4px;transition:color .15s}
+.arr-sup:hover{color:var(--red)}
+
+/* EXPORT */
+.exp-wrap{position:relative}
+.exp-menu{position:absolute;bottom:calc(100% + 8px);right:0;background:var(--s2);border:1px solid var(--b2);border-radius:16px;padding:6px;min-width:210px;z-index:200;display:none;flex-direction:column;gap:2px;box-shadow:0 8px 40px rgba(0,0,0,.6);animation:popUp .18s ease}
+@keyframes popUp{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+.exp-menu.ouvert{display:flex}
+.exp-ligne{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:10px;background:none;border:none;cursor:pointer;color:var(--tx);font-family:'DM Sans',sans-serif;font-size:14px;text-align:left;width:100%;transition:background .15s}
+.exp-ligne:hover{background:var(--s3)}
+.exp-ico{font-size:18px;width:24px;text-align:center}
+.exp-nom{font-weight:600}
+.exp-sub{font-size:11px;color:var(--tx3);margin-top:1px}
+
+/* VOCAL BAR */
+#vocal-barre{position:fixed;bottom:calc(62px + var(--sb) + 12px);left:50%;transform:translateX(-50%) translateY(20px);background:var(--s2);border:1px solid var(--orng);border-radius:30px;padding:9px 20px;display:none;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--orng);box-shadow:0 4px 24px rgba(255,107,53,.35);z-index:150;white-space:nowrap;transition:transform .3s,opacity .3s;opacity:0}
+#vocal-barre.actif{display:flex;transform:translateX(-50%) translateY(0);opacity:1}
+.point-vocal{width:8px;height:8px;border-radius:50%;background:var(--orng);animation:vPulse .9s ease-in-out infinite}
+@keyframes vPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.5);opacity:.4}}
+#vocal-txt{font-size:12px}
+
+/* ===== ÉCRAN MULTI ===== */
+#ecran-multi{padding:16px}
+.multi-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.multi-titre{font-family:'Bebas Neue',cursive;font-size:30px;letter-spacing:.12em}
+#multi-nb{font-size:12px;color:var(--tx3);margin-top:2px}
+.multi-grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.carte{--cc:var(--cyan);--cg:rgba(0,229,255,.22);background:var(--s1);border:1px solid var(--b1);border-radius:20px;padding:16px;position:relative;overflow:hidden;animation:crdIn .28s ease}
+@keyframes crdIn{from{opacity:0;transform:scale(.94) translateY(6px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.carte::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--cc);opacity:.8}
+.carte::after{content:'';position:absolute;inset:0;border-radius:20px;background:radial-gradient(ellipse at 50% 0%,var(--cg) 0%,transparent 70%);pointer-events:none}
+.carte-top{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.carte-nom{flex:1;background:none;border:none;border-bottom:1px solid var(--b2);color:var(--tx);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;padding:3px 0;outline:none;transition:border-color .2s}
+.carte-nom:focus{border-color:var(--cc)}
+.carte-sup{background:none;border:none;cursor:pointer;color:var(--tx3);font-size:20px;line-height:1;transition:color .15s}
+.carte-sup:hover{color:var(--red)}
+.carte-temps{font-family:'DM Mono',monospace;font-size:clamp(32px,7vw,46px);font-weight:500;color:var(--cc);text-align:center;margin-bottom:14px;text-shadow:0 0 20px var(--cg);line-height:1}
+.carte-btns{display:flex;gap:8px}
+.carte-btn{flex:1;padding:10px 8px;border-radius:12px;border:1px solid var(--b2);background:var(--s2);color:var(--tx2);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:transform .1s,background .15s,color .15s}
+.carte-btn:active{transform:scale(.91)}
+.carte-btn.start{background:rgba(168,255,62,.12);color:var(--grn);border-color:rgba(168,255,62,.3)}
+.carte-btn.stop{background:rgba(255,61,90,.12);color:var(--red);border-color:rgba(255,61,90,.3)}
+.carte-rst{flex:.45}
+.multi-vide{grid-column:1/-1;text-align:center;color:var(--tx3);padding:60px 20px}
+.multi-vide-ico{font-size:48px;margin-bottom:14px}
+.multi-vide p{font-size:14px;line-height:1.75}
+
+@media(orientation:landscape){
+  #g-temps{font-size:clamp(58px,16vw,148px)}
+  #ecran-arr{flex-direction:row}
+  .arr-haut{width:300px;min-width:260px;flex-shrink:0;border-bottom:none;border-right:1px solid var(--b2);overflow-y:auto}
+  .multi-grille{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+  #nav-bas button{padding:8px 4px 10px}
+}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+</style>
+</head>
+<body>
+<div id="shell">
+  <div id="zone-pages">
+
+    <!-- GÉANT -->
+    <div class="ecran visible" id="ecran-geant">
+      <img src="logo.png" alt="" class="logo-app" onerror="this.style.display='none'">
+      <div class="g-titre">CHRONOMÈTRE</div>
+      <div id="g-temps" class="stop">00:00</div>
+      <div id="g-cs">.00</div>
+      <div id="g-etat">PRÊT</div>
+      <div class="g-ctrl">
+        <button class="btn bxl bcyan" id="g-btn" onclick="gToggle()">
+          <svg id="g-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:22px;height:22px;stroke-width:2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span id="g-lbl">DÉMARRER</span>
+        </button>
+        <button class="btn blg bred" onclick="gReset()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:17px;height:17px;stroke-width:2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
+          RESET
+        </button>
+      </div>
+    </div>
+
+    <!-- ARRIVÉES -->
+    <div class="ecran" id="ecran-arr">
+      <div class="arr-haut">
+        <div class="arr-ligne1">
+          <div id="arr-temps">00:00.0</div>
+          <div class="arr-ctrl">
+            <button class="btn bmd borng" id="arr-btn" onclick="aToggle()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:15px;height:15px;stroke-width:2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <span id="arr-lbl">GO</span>
+            </button>
+            <button class="btn bmd bgrn" onclick="aRecord()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:14px;height:14px;stroke-width:2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              ARRIVÉE
+            </button>
+            <button class="btn bsm bghost" onclick="aReset()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:13px;height:13px;stroke-width:2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="arr-onglets">
+          <button class="ong sel" onclick="aMode('chrono',this)">⏱ Chrono</button>
+          <button class="ong" onclick="aMode('minuteur',this)">⏳ Minuteur</button>
+          <button class="ong" id="ong-vocal" onclick="vToggle()">🎤 Vocal</button>
+        </div>
+        <div class="min-zone" id="min-zone">
+          <input class="min-champ" id="champ-min" type="number" value="1" min="0" max="99">
+          <span class="min-lbl">min</span>
+          <input class="min-champ" id="champ-sec" type="number" value="0" min="0" max="59">
+          <span class="min-lbl">sec</span>
+          <button class="btn bsm bcyan" onclick="aDefMin()">OK</button>
+        </div>
+        <div class="barre-prog" id="barre-prog">
+          <div id="barre-fill"></div>
+        </div>
+      </div>
+      <div class="arr-droite">
+        <div class="arr-entete">
+          <span id="arr-ttl">ARRIVÉES</span>
+          <div class="exp-wrap">
+            <button class="btn bsm bghost" onclick="expOuvrir(event)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:13px;height:13px;stroke-width:2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              EXPORT
+            </button>
+            <div class="exp-menu" id="exp-menu">
+              <button class="exp-ligne" onclick="expCSV()"><span class="exp-ico">📊</span><div><div class="exp-nom">Fichier CSV</div><div class="exp-sub">Excel / Numbers</div></div></button>
+              <button class="exp-ligne" onclick="expCopier()"><span class="exp-ico">📋</span><div><div class="exp-nom">Copier</div><div class="exp-sub">Presse-papier</div></div></button>
+              <button class="exp-ligne" onclick="expImprimer()"><span class="exp-ico">🖨️</span><div><div class="exp-nom">Imprimer</div><div class="exp-sub">Fiche résultats</div></div></button>
+              <button class="exp-ligne" onclick="expPartager()"><span class="exp-ico">📤</span><div><div class="exp-nom">Partager</div><div class="exp-sub">AirDrop, Mail…</div></div></button>
+            </div>
+          </div>
+        </div>
+        <div id="arr-liste">
+          <div class="arr-vide" id="arr-vide">
+            <div class="arr-vide-ico">🏁</div>
+            <p>Lance le chrono puis tape<br><strong>ARRIVÉE</strong> à chaque passage.<br><br>Nomme chaque élève à la main<br>ou avec la commande vocale 🎤</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MULTI -->
+    <div class="ecran" id="ecran-multi">
+      <div class="multi-hdr">
+        <div>
+          <div class="multi-titre">MULTI-CHRONO</div>
+          <div id="multi-nb">Aucun chrono</div>
+        </div>
+        <button class="btn bmd bghost" onclick="mAjouter()" style="gap:6px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:16px;height:16px;stroke-width:2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Ajouter
+        </button>
+      </div>
+      <div class="multi-grille" id="multi-grille">
+        <div class="multi-vide">
+          <div class="multi-vide-ico">⏱️</div>
+          <p>Appuie sur <strong>Ajouter</strong> pour créer<br>un chrono par élève.<br>Chaque chrono est indépendant.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <nav id="nav-bas">
+    <button class="sel" onclick="navVers(0,this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Géant
+    </button>
+    <button onclick="navVers(1,this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Arrivées
+    </button>
+    <button onclick="navVers(2,this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Multi
+    </button>
+  </nav>
+</div>
+
+<div id="vocal-barre"><div class="point-vocal"></div><span id="vocal-txt">Écoute…</span></div>
+<div id="msg-toast"></div>
+
+<script>
+'use strict';
+
+/* ── OUTILS ─────────────────────────────────── */
+function getId(id) { return document.getElementById(id); }
+function zer(n) { return String(Math.floor(n)).padStart(2,'0'); }
+function fmtTemps(ms, dec) {
+  if (dec === undefined) dec = 2;
+  var s = ms / 1000, m = Math.floor(s/60), sc = Math.floor(s%60);
+  var cs = Math.floor((ms%1000) / (dec===1 ? 100 : 10));
+  return zer(m) + ':' + zer(sc) + '.' + (dec===1 ? cs : String(cs).padStart(2,'0'));
+}
+var _tmrToast;
+function toast(msg, col) {
+  if (!col) col = 'var(--grn)';
+  var t = getId('msg-toast');
+  t.textContent = msg; t.style.color = col;
+  t.classList.add('show');
+  clearTimeout(_tmrToast);
+  _tmrToast = setTimeout(function(){ t.classList.remove('show'); }, 2200);
+}
+document.addEventListener('click', function(e){
+  if (!e.target.closest('.exp-wrap')) getId('exp-menu').classList.remove('ouvert');
+});
+
+/* ── NAV ─────────────────────────────────────── */
+var tousEcrans = document.querySelectorAll('.ecran');
+var tousBtnsNav = document.querySelectorAll('#nav-bas button');
+function navVers(idx, btn) {
+  tousEcrans.forEach(function(e,i){ e.classList.toggle('visible', i===idx); });
+  tousBtnsNav.forEach(function(b,i){ b.classList.toggle('sel', i===idx); });
+}
+
+/* ════════════════════════════════════════════════
+   GÉANT
+════════════════════════════════════════════════ */
+var geant = { actif:false, debut:null, ecoule:0, raf:null };
+
+function geantTick() {
+  geant.ecoule = performance.now() - geant.debut;
+  var s=geant.ecoule/1000, m=Math.floor(s/60), sc=Math.floor(s%60);
+  getId('g-temps').textContent = zer(m)+':'+zer(sc);
+  getId('g-cs').textContent = '.'+String(Math.floor((geant.ecoule%1000)/10)).padStart(2,'0');
+  geant.raf = requestAnimationFrame(geantTick);
+}
+
+function gToggle() {
+  if (!geant.actif) {
+    geant.debut = performance.now() - geant.ecoule;
+    geant.actif = true;
+    geant.raf = requestAnimationFrame(geantTick);
+    getId('g-temps').className = 'run';
+    getId('g-lbl').textContent = 'ARRÊTER';
+    getId('g-ico').innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+    getId('g-btn').className = 'btn bxl borng';
+    getId('g-etat').style.color = 'var(--orng)';
+    getId('g-etat').textContent = 'EN COURS';
+  } else {
+    cancelAnimationFrame(geant.raf); geant.actif = false;
+    getId('g-temps').className = 'stop';
+    getId('g-lbl').textContent = 'REPRENDRE';
+    getId('g-ico').innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+    getId('g-btn').className = 'btn bxl bcyan';
+    getId('g-etat').style.color = 'var(--tx2)';
+    getId('g-etat').textContent = 'ARRÊTÉ';
+  }
+}
+
+function gReset() {
+  cancelAnimationFrame(geant.raf);
+  geant.actif=false; geant.debut=null; geant.ecoule=0; geant.raf=null;
+  getId('g-temps').className = 'stop';
+  getId('g-temps').textContent = '00:00';
+  getId('g-cs').textContent = '.00';
+  getId('g-lbl').textContent = 'DÉMARRER';
+  getId('g-ico').innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+  getId('g-btn').className = 'btn bxl bcyan';
+  getId('g-etat').style.color = 'var(--tx3)';
+  getId('g-etat').textContent = 'PRÊT';
+}
+
+/* ════════════════════════════════════════════════
+   ARRIVÉES — UID stable, pas de bug d'index
+════════════════════════════════════════════════ */
+var arr = {
+  actif:false, debut:null, ecoule:0, raf:null,
+  mode:'chrono', minTotal:0, minDebut:null,
+  liste:[], nextUid:0, vocalOn:false
+};
+
+function arrTick() {
+  var now = performance.now();
+  if (arr.mode === 'chrono') {
+    arr.ecoule = now - arr.debut;
+    getId('arr-temps').textContent = fmtTemps(arr.ecoule, 1);
+  } else {
+    var r = arr.minTotal - (now - arr.minDebut);
+    if (r <= 0) {
+      getId('arr-temps').textContent = '00:00.0';
+      getId('arr-temps').style.color = 'var(--red)';
+      getId('barre-fill').style.width = '0%';
+      aStop(); toast('⏰ Temps écoulé !','var(--red)'); return;
+    }
+    getId('arr-temps').textContent = fmtTemps(r, 1);
+    getId('barre-fill').style.width = (r/arr.minTotal*100)+'%';
+    getId('barre-fill').style.background = r/arr.minTotal < 0.2 ? 'var(--red)' : 'var(--orng)';
+  }
+  arr.raf = requestAnimationFrame(arrTick);
+}
+
+function aToggle() {
+  if (!arr.actif) {
+    if (arr.mode==='minuteur' && !arr.minTotal) { toast('Configure le minuteur','var(--orng)'); return; }
+    arr.actif = true;
+    if (arr.mode==='chrono') {
+      arr.debut = performance.now() - arr.ecoule;
+    } else {
+      arr.minDebut = performance.now();
+      getId('arr-temps').style.color = 'var(--orng)';
+    }
+    getId('arr-lbl').textContent = 'STOP';
+    getId('arr-btn').className = 'btn bmd bred';
+    arr.raf = requestAnimationFrame(arrTick);
+  } else { aStop(); }
+}
+
+function aStop() {
+  cancelAnimationFrame(arr.raf); arr.actif = false;
+  getId('arr-lbl').textContent = 'GO';
+  getId('arr-btn').className = 'btn bmd borng';
+}
+
+function aReset() {
+  aStop();
+  arr.ecoule=0; arr.minDebut=null; arr.liste=[]; arr.nextUid=0;
+  getId('arr-temps').textContent = arr.mode==='chrono' ? '00:00.0' : '--:--.-';
+  getId('arr-temps').style.color = 'var(--orng)';
+  getId('barre-fill').style.width = '100%';
+  getId('barre-fill').style.background = 'var(--orng)';
+  arrRendre();
+}
+
+function aRecord() {
+  var t;
+  if (arr.mode==='chrono') {
+    if (!arr.actif && arr.ecoule===0) return;
+    t = arr.actif ? performance.now()-arr.debut : arr.ecoule;
+  } else {
+    if (!arr.minDebut) return;
+    t = Math.max(0, arr.minTotal-(performance.now()-arr.minDebut));
+  }
+  arr.liste.push({ uid:arr.nextUid++, temps:t, nom:'' });
+  arrRendre();
+}
+
+function arrNom(uid, val) {
+  var item = null;
+  for (var i=0; i<arr.liste.length; i++) { if (arr.liste[i].uid===uid) { item=arr.liste[i]; break; } }
+  if (item) item.nom = val;
+}
+
+function arrDel(uid) {
+  arr.liste = arr.liste.filter(function(a){ return a.uid!==uid; });
+  arrRendre();
+}
+
+function arrRendre() {
+  var liste = getId('arr-liste');
+  var vide  = getId('arr-vide');
+  if (arr.liste.length===0) {
+    vide.style.display='block';
+    Array.from(liste.children).forEach(function(c){ if(c!==vide) c.remove(); });
+    return;
+  }
+  vide.style.display='none';
+  var trie = arr.liste.slice().sort(function(a,b){
+    return arr.mode==='chrono' ? a.temps-b.temps : b.temps-a.temps;
+  });
+  var fuUid = (document.activeElement && document.activeElement.dataset && document.activeElement.dataset.uid)
+    ? parseInt(document.activeElement.dataset.uid) : null;
+  liste.innerHTML=''; liste.appendChild(vide);
+  trie.forEach(function(item, rang) {
+    var rc = rang===0?'r1':rang===1?'r2':rang===2?'r3':'rn';
+    var med = rang===0?'🥇':rang===1?'🥈':rang===2?'🥉':(rang+1);
+    var div = document.createElement('div');
+    div.className='arr-item';
+    div.innerHTML =
+      '<div class="arr-rang '+rc+'">'+med+'</div>'+
+      '<div class="arr-t">'+fmtTemps(item.temps,2)+'</div>'+
+      '<input class="arr-prenom" data-uid="'+item.uid+'" '+
+        'value="'+item.nom.replace(/"/g,'&quot;')+'" placeholder="Prénom…" '+
+        'oninput="arrNom('+item.uid+',this.value)">'+
+      '<button class="arr-sup" onclick="arrDel('+item.uid+')">×</button>';
+    liste.appendChild(div);
+  });
+  if (fuUid!==null) {
+    var ef = liste.querySelector('input[data-uid="'+fuUid+'"]');
+    if (ef) { ef.focus(); var l=ef.value.length; ef.setSelectionRange(l,l); }
+  }
+}
+
+function aMode(mode, btn) {
+  arr.mode = mode;
+  document.querySelectorAll('.ong').forEach(function(b){ b.classList.remove('sel'); });
+  btn.classList.add('sel');
+  var isMin = mode==='minuteur';
+  getId('min-zone').classList.toggle('show', isMin);
+  getId('barre-prog').classList.toggle('show', isMin);
+  getId('arr-ttl').textContent = isMin ? 'TEMPS ENREGISTRÉS' : 'ARRIVÉES';
+  aReset();
+}
+
+function aDefMin() {
+  var m = parseInt(getId('champ-min').value)||0;
+  var s = parseInt(getId('champ-sec').value)||0;
+  arr.minTotal = (m*60+s)*1000;
+  if (arr.minTotal>0) {
+    getId('arr-temps').textContent = fmtTemps(arr.minTotal,1);
+    getId('barre-fill').style.width='100%';
+    toast('⏳ '+m+'min '+s+'s');
+  }
+}
+
+/* ── Export ─────────────────────────────── */
+function expOuvrir(e) {
+  e.stopPropagation();
+  if (arr.liste.length===0) { toast('Aucune arrivée','var(--orng)'); return; }
+  getId('exp-menu').classList.toggle('ouvert');
+}
+function expTrie() {
+  return arr.liste.slice().sort(function(a,b){ return arr.mode==='chrono' ? a.temps-b.temps : b.temps-a.temps; });
+}
+function expTexte() {
+  var s=expTrie(), date=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  var t='ChronoClass — '+(arr.mode==='chrono'?'Arrivées':'Minuteur')+'\n'+date+'\n'+'─'.repeat(32)+'\n';
+  s.forEach(function(it,i){ var m=i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'.'; t+=m+' '+(it.nom||'(sans nom)')+'  '+fmtTemps(it.temps,2)+'\n'; });
+  return t;
+}
+function expCSV() {
+  getId('exp-menu').classList.remove('ouvert');
+  var csv='Rang,Prenom,Temps\n';
+  expTrie().forEach(function(it,i){ csv+=(i+1)+',"'+(it.nom||'').replace(/"/g,' ')+'","'+fmtTemps(it.temps,2)+'"\n'; });
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}));
+  a.download='arrivees_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click(); toast('📊 CSV exporté !');
+}
+function expCopier() {
+  getId('exp-menu').classList.remove('ouvert'); var txt=expTexte();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(function(){ toast('📋 Copié !'); });
+  } else {
+    var ta=document.createElement('textarea'); ta.value=txt; ta.style.cssText='position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    toast('📋 Copié !');
+  }
+}
+function expImprimer() {
+  getId('exp-menu').classList.remove('ouvert'); var s=expTrie();
+  var date=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  var rows=s.map(function(it,i){ var m=i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1; return '<tr><td style="text-align:center;font-size:18px">'+m+'</td><td>'+(it.nom||'<em style="color:#aaa">Sans nom</em>')+'</td><td style="font-family:monospace;font-weight:700;text-align:right">'+fmtTemps(it.temps,2)+'</td></tr>'; }).join('');
+  var w=window.open('','_blank');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ChronoClass</title><style>body{font-family:sans-serif;padding:32px;color:#111}h1{font-size:22px;margin-bottom:4px}.sub{color:#888;font-size:13px;margin-bottom:24px}table{width:100%;border-collapse:collapse}th{background:#f5f5f5;padding:10px 16px;text-align:left;font-size:12px;text-transform:uppercase}td{padding:10px 16px;border-bottom:1px solid #eee}tr:nth-child(even) td{background:#fafafa}</style></head><body><h1>ChronoClass — Résultats</h1><div class="sub">'+date+' — '+s.length+' participant'+(s.length>1?'s':'')+'</div><table><thead><tr><th>Rang</th><th>Prénom</th><th style="text-align:right">Temps</th></tr></thead><tbody>'+rows+'</tbody></table></body></html>');
+  w.document.close(); setTimeout(function(){ w.print(); },350);
+}
+function expPartager() {
+  getId('exp-menu').classList.remove('ouvert'); var txt=expTexte();
+  if (navigator.share) { navigator.share({title:'ChronoClass',text:txt}).catch(function(){ expCopier(); }); }
+  else expCopier();
+}
+
+/* ── Vocal ─────────────────────────────── */
+var recogObj=null, recogTmr=null;
+function recogStart() {
+  if (!arr.vocalOn) return;
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR) return;
+  recogObj=new SR(); recogObj.lang='fr-FR'; recogObj.continuous=false; recogObj.interimResults=false; recogObj.maxAlternatives=1;
+  recogObj.onresult=function(e){ vocalTraiter(e.results[0][0].transcript.trim().toLowerCase()); };
+  recogObj.onend=function(){ if(arr.vocalOn) recogTmr=setTimeout(recogStart,200); };
+  recogObj.onerror=function(e){ if(e.error==='no-speech'||e.error==='audio-capture'){ if(arr.vocalOn) recogTmr=setTimeout(recogStart,300); } else { vocalStop(); toast('🎤 Erreur : '+e.error,'var(--red)'); } };
+  try{recogObj.start();}catch(e){}
+}
+function vocalStop() {
+  clearTimeout(recogTmr); try{if(recogObj)recogObj.abort();}catch(e){}
+  recogObj=null; arr.vocalOn=false;
+  getId('ong-vocal').textContent='🎤 Vocal'; getId('ong-vocal').classList.remove('vocal-on');
+  getId('vocal-barre').classList.remove('actif');
+}
+function vToggle() {
+  if (!arr.vocalOn) {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) { toast('Vocal non disponible','var(--red)'); return; }
+    arr.vocalOn=true;
+    getId('ong-vocal').textContent='🔴 ON'; getId('ong-vocal').classList.add('vocal-on');
+    getId('vocal-barre').classList.add('actif');
+    recogStart(); toast('🎤 Vocal activé');
+  } else vocalStop();
+}
+function vocalTraiter(txt) {
+  getId('vocal-txt').textContent='"'+txt+'"'; setTimeout(function(){ getId('vocal-txt').textContent='Écoute…'; },1800);
+  if (/arriv[eé]e|suivant|next|top|passage/.test(txt)) { aRecord(); toast('📍 Arrivée !','var(--grn)'); return; }
+  if (/d[eé]marr|start|go/.test(txt) && !arr.actif) { aToggle(); return; }
+  if (/stop|arr[eê]t/.test(txt) && arr.actif) { aStop(); return; }
+  if (/reset|recommence/.test(txt)) { aReset(); return; }
+  var sansNom=null;
+  for(var i=arr.liste.length-1;i>=0;i--){ if(arr.liste[i].nom.trim()===''){sansNom=arr.liste[i];break;} }
+  var prenom=txt.charAt(0).toUpperCase()+txt.slice(1);
+  if (sansNom) { arrNom(sansNom.uid,prenom); arrRendre(); toast('✅ '+prenom); }
+  else { aRecord(); var last=arr.liste[arr.liste.length-1]; if(last){arrNom(last.uid,prenom);arrRendre();} toast('📍 '+prenom); }
+}
+
+/* ════════════════════════════════════════════════
+   MULTI-CHRONO
+════════════════════════════════════════════════ */
+var CC=[['var(--cyan)','rgba(0,229,255,.22)'],['var(--orng)','rgba(255,107,53,.22)'],['var(--grn)','rgba(168,255,62,.22)'],['#ff3ea8','rgba(255,62,168,.22)'],['#ffe03e','rgba(255,224,62,.22)'],['#a03eff','rgba(160,62,255,.22)']];
+var mListe=[], mUid=0;
+
+function mAjouter() {
+  var id=mUid++;
+  mListe.push({id:id, nom:'Élève '+(id+1), actif:false, debut:null, ecoule:0, raf:null});
+  mRendre();
+}
+function mMaj() {
+  var n=mListe.length, ac=mListe.filter(function(c){return c.actif;}).length;
+  getId('multi-nb').textContent = n===0?'Aucun chrono':n+' chrono'+(n>1?'s':'')+' — '+ac+' en cours';
+}
+function mRendre() {
+  var g=getId('multi-grille'); g.innerHTML=''; mMaj();
+  if (mListe.length===0) { g.innerHTML='<div class="multi-vide"><div class="multi-vide-ico">⏱️</div><p>Appuie sur <strong>Ajouter</strong> pour créer<br>un chrono par élève.<br>Chaque chrono est indépendant.</p></div>'; return; }
+  mListe.forEach(function(c){
+    var cc=CC[c.id%CC.length][0], cg=CC[c.id%CC.length][1];
+    var card=document.createElement('div');
+    card.className='carte'; card.id='carte-'+c.id; card.style.cssText='--cc:'+cc+';--cg:'+cg;
+    card.innerHTML=
+      '<div class="carte-top">'+
+        '<input class="carte-nom" value="'+c.nom.replace(/"/g,'&quot;')+'" placeholder="Prénom…" '+
+          'oninput="mListe.filter(function(x){return x.id==='+c.id+'})[0].nom=this.value">'+
+        '<button class="carte-sup" onclick="mSupp('+c.id+')">×</button>'+
+      '</div>'+
+      '<div class="carte-temps" id="mct-'+c.id+'">'+fmtTemps(c.ecoule,2)+'</div>'+
+      '<div class="carte-btns">'+
+        '<button class="carte-btn '+(c.actif?'stop':'start')+'" id="mcb-'+c.id+'" onclick="mTog('+c.id+')">'+(c.actif?'⏹ STOP':'▶ START')+'</button>'+
+        '<button class="carte-btn carte-rst" onclick="mRst('+c.id+')">↺</button>'+
+      '</div>';
+    g.appendChild(card);
+  });
+}
+function mTog(id) {
+  var c=null; for(var i=0;i<mListe.length;i++){if(mListe[i].id===id){c=mListe[i];break;}}
+  if(!c) return;
+  if(!c.actif){
+    c.debut=performance.now()-c.ecoule; c.actif=true;
+    c.raf=requestAnimationFrame(function tick(){
+      c.ecoule=performance.now()-c.debut;
+      var d=document.getElementById('mct-'+c.id); if(d) d.textContent=fmtTemps(c.ecoule,2);
+      if(c.actif) c.raf=requestAnimationFrame(tick);
+    });
+  } else { cancelAnimationFrame(c.raf); c.actif=false; }
+  var btn=document.getElementById('mcb-'+c.id);
+  if(btn){btn.className='carte-btn '+(c.actif?'stop':'start');btn.textContent=c.actif?'⏹ STOP':'▶ START';}
+  mMaj();
+}
+function mRst(id) {
+  var c=null; for(var i=0;i<mListe.length;i++){if(mListe[i].id===id){c=mListe[i];break;}}
+  if(!c) return;
+  cancelAnimationFrame(c.raf); c.actif=false; c.ecoule=0; c.debut=null;
+  var d=document.getElementById('mct-'+c.id); if(d) d.textContent=fmtTemps(0,2);
+  var btn=document.getElementById('mcb-'+c.id); if(btn){btn.className='carte-btn start';btn.textContent='▶ START';}
+  mMaj();
+}
+function mSupp(id) {
+  for(var i=0;i<mListe.length;i++){if(mListe[i].id===id){cancelAnimationFrame(mListe[i].raf);break;}}
+  mListe=mListe.filter(function(x){return x.id!==id;}); mRendre();
+}
+
+/* ── Service Worker ────────────────────────── */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('./sw.js')
+      .then(function(r){ console.log('[SW] OK',r.scope); })
+      .catch(function(e){ console.warn('[SW]',e); });
+  });
+}
+</script>
+</body>
+</html>
