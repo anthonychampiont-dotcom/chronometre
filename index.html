@@ -15,6 +15,8 @@
 <link rel="icon" type="image/png" href="icon-192.png">
 <title>ChronoClass</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Tesseract.js OCR — lecture dossards -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 :root {
   --bg:#080810; --s1:#10101c; --s2:#181828; --s3:#20203a;
@@ -57,20 +59,76 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:v
 #msg-toast{position:fixed;top:calc(var(--st) + 16px);left:50%;transform:translateX(-50%) translateY(-80px);background:var(--s2);border:1px solid var(--b2);color:var(--grn);padding:10px 22px;border-radius:24px;font-size:13px;font-weight:700;z-index:500;pointer-events:none;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;white-space:nowrap;opacity:0;box-shadow:0 4px 24px rgba(0,0,0,.5)}
 #msg-toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
-/* ===== ÉCRAN GÉANT ===== */
-#ecran-geant{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:radial-gradient(ellipse 70% 60% at 50% 45%,#0c0c22 0%,var(--bg) 100%)}
-.logo-app{width:clamp(52px,11vw,88px);height:clamp(52px,11vw,88px);border-radius:18px;margin-bottom:12px;object-fit:contain;filter:drop-shadow(0 0 14px rgba(0,229,255,.45));animation:logoBreathe 3s ease-in-out infinite alternate}
-@keyframes logoBreathe{from{filter:drop-shadow(0 0 10px rgba(0,229,255,.3))}to{filter:drop-shadow(0 0 22px rgba(0,229,255,.65))}}
-.g-titre{font-family:'Bebas Neue',cursive;font-size:clamp(13px,2.5vw,20px);letter-spacing:.35em;color:var(--tx3);margin-bottom:6px}
-#g-temps{font-family:'Bebas Neue',cursive;font-size:clamp(88px,23vw,210px);line-height:.9;color:var(--cyan);text-shadow:0 0 60px rgba(0,229,255,.35);transition:color .3s,text-shadow .3s;text-align:center}
+/* ===== GÉANT ===== */
+/*
+  Stratégie d'adaptation :
+  - #ecran-geant est un flex column qui prend toute la hauteur dispo
+  - .g-milieu (flex:1) absorbe tout l'espace entre le logo et les boutons
+  - fitGeant() mesure .g-milieu et calcule la plus grande fontSize
+    qui tient dans sa largeur ET sa hauteur
+  - Appelé au load, resize, orientationchange et changement d'onglet
+*/
+#ecran-geant {
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-start;
+  padding:14px 12px 14px;
+  background:radial-gradient(ellipse 70% 55% at 50% 40%,#0c0c22 0%,var(--bg) 100%);
+  overflow:hidden;gap:0;
+}
+.logo-app {
+  width:clamp(40px,7vh,68px);height:clamp(40px,7vh,68px);
+  border-radius:14px;flex-shrink:0;object-fit:contain;
+  filter:drop-shadow(0 0 10px rgba(0,229,255,.5));
+  animation:logoBreathe 3s ease-in-out infinite alternate;
+  margin-bottom:6px;
+}
+@keyframes logoBreathe {
+  from{filter:drop-shadow(0 0 6px rgba(0,229,255,.3))}
+  to  {filter:drop-shadow(0 0 18px rgba(0,229,255,.7))}
+}
+/* Zone centrale élastique */
+.g-milieu {
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  width:100%;min-height:0;overflow:hidden;
+}
+.g-titre {
+  font-family:'Bebas Neue',cursive;
+  font-size:clamp(10px,1.8vh,17px);letter-spacing:.4em;
+  color:var(--tx3);margin-bottom:2px;flex-shrink:0;
+}
+/* Taille initiale large — sera recalculée par fitGeant() */
+#g-temps {
+  font-family:'Bebas Neue',cursive;
+  font-size:200px;
+  line-height:.88;color:var(--cyan);
+  text-shadow:0 0 60px rgba(0,229,255,.35);
+  transition:color .3s,text-shadow .3s;
+  text-align:center;white-space:nowrap;flex-shrink:0;
+}
 #g-temps.stop{color:var(--tx2);text-shadow:none}
 #g-temps.run{animation:gPulse 1s ease-in-out infinite alternate}
-@keyframes gPulse{from{text-shadow:0 0 40px rgba(0,229,255,.3)}to{text-shadow:0 0 80px rgba(0,229,255,.55),0 0 160px rgba(0,229,255,.2)}}
-#g-cs{font-family:'DM Mono',monospace;font-size:clamp(30px,7vw,68px);color:rgba(0,229,255,.45);margin-top:-4px}
-#g-etat{font-family:'Bebas Neue',cursive;font-size:clamp(14px,2.8vw,22px);letter-spacing:.3em;min-height:28px;margin-top:10px;color:var(--tx3)}
-.g-ctrl{display:flex;gap:14px;margin-top:36px;flex-wrap:wrap;justify-content:center}
+@keyframes gPulse {
+  from{text-shadow:0 0 40px rgba(0,229,255,.3),0 0 80px rgba(0,229,255,.1)}
+  to  {text-shadow:0 0 100px rgba(0,229,255,.6),0 0 200px rgba(0,229,255,.25)}
+}
+#g-cs {
+  font-family:'DM Mono',monospace;
+  font-size:60px; /* recalculé par fitGeant */
+  color:rgba(0,229,255,.5);margin-top:-2px;flex-shrink:0;
+}
+#g-etat {
+  font-family:'Bebas Neue',cursive;
+  font-size:clamp(12px,2vh,20px);letter-spacing:.3em;
+  min-height:22px;margin-top:5px;color:var(--tx3);flex-shrink:0;
+}
+.g-ctrl {
+  display:flex;gap:14px;flex-wrap:wrap;
+  justify-content:center;flex-shrink:0;
+  padding-top:10px;
+}
 
-/* ===== ÉCRAN ARRIVÉES ===== */
+/* ===== ARRIVÉES ===== */
 #ecran-arr{display:flex;flex-direction:column}
 .arr-haut{flex-shrink:0;background:var(--s1);border-bottom:1px solid var(--b2);padding:14px 16px 12px}
 .arr-ligne1{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
@@ -80,6 +138,8 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:v
 .ong{padding:6px 14px;border-radius:20px;border:1px solid var(--b2);background:none;color:var(--tx3);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s}
 .ong.sel{background:var(--orng);color:#fff;border-color:var(--orng)}
 #ong-vocal.vocal-on{background:var(--red);color:#fff;border-color:var(--red)}
+#ong-cam.cam-on{background:var(--cyan);color:#000;border-color:var(--cyan)}
+
 .min-zone{display:none;margin-top:10px;align-items:center;gap:10px;flex-wrap:wrap}
 .min-zone.show{display:flex}
 .min-champ{background:var(--s2);border:1px solid var(--b2);border-radius:10px;color:var(--tx);font-family:'DM Mono',monospace;font-size:22px;padding:8px 12px;width:72px;text-align:center;outline:none}
@@ -87,6 +147,91 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:v
 .barre-prog{height:3px;background:var(--b1);margin-top:10px;border-radius:2px;overflow:hidden;display:none}
 .barre-prog.show{display:block}
 #barre-fill{height:100%;width:100%;background:var(--orng);box-shadow:0 0 8px var(--orng);border-radius:2px;transition:width .1s linear,background .3s}
+
+/* ── CAMÉRA ── */
+#cam-zone{
+  display:none;
+  position:relative;
+  background:#000;
+  flex-shrink:0;
+  overflow:hidden;
+}
+#cam-zone.show{display:block}
+#cam-video{
+  width:100%;
+  max-height:220px;
+  object-fit:cover;
+  display:block;
+}
+/* Viseur central pour viser le dossard */
+#cam-viseur{
+  position:absolute;
+  top:50%; left:50%;
+  transform:translate(-50%,-50%);
+  width:160px; height:80px;
+  border:3px solid var(--cyan);
+  border-radius:10px;
+  box-shadow:0 0 0 2000px rgba(0,0,0,.45), 0 0 20px rgba(0,229,255,.5);
+  pointer-events:none;
+}
+/* Coins animés */
+#cam-viseur::before,#cam-viseur::after{
+  content:'';position:absolute;
+  width:20px;height:20px;
+  border-color:var(--cyan);border-style:solid;
+}
+#cam-viseur::before{top:-3px;left:-3px;border-width:4px 0 0 4px;border-radius:6px 0 0 0}
+#cam-viseur::after{bottom:-3px;right:-3px;border-width:0 4px 4px 0;border-radius:0 0 6px 0}
+
+#cam-scan-line{
+  position:absolute;
+  top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+  animation:scanLine 1.8s ease-in-out infinite;
+  display:none;
+}
+#cam-scan-line.actif{display:block}
+@keyframes scanLine{0%{top:10%}50%{top:85%}100%{top:10%}}
+
+#cam-numero-lu{
+  position:absolute;
+  top:8px;left:50%;
+  transform:translateX(-50%);
+  background:rgba(0,0,0,.75);
+  border:1px solid var(--b2);
+  border-radius:8px;
+  padding:4px 14px;
+  font-family:'DM Mono',monospace;
+  font-size:13px;font-weight:500;
+  color:var(--tx2);
+  white-space:nowrap;
+  transition:color .2s,border-color .2s;
+}
+#cam-numero-lu.confirme{color:var(--cyan);border-color:var(--cyan)}
+
+#cam-flash{
+  position:absolute;inset:0;
+  background:var(--cyan);
+  opacity:0;pointer-events:none;
+  transition:opacity .05s;
+}
+
+/* ── Saisie manuelle de dossard ── */
+#dossard-zone{
+  display:none;
+  margin-top:10px;
+  align-items:center;
+  gap:8px;
+}
+#dossard-zone.show{display:flex}
+#dossard-input{
+  background:var(--s2);border:1px solid var(--b2);border-radius:10px;
+  color:var(--tx);font-family:'DM Mono',monospace;font-size:26px;
+  padding:6px 14px;width:100px;text-align:center;outline:none;
+  -webkit-appearance:none;
+}
+#dossard-input:focus{border-color:var(--orng)}
+
 .arr-entete{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 4px;flex-shrink:0}
 #arr-ttl{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--tx3)}
 .arr-droite{flex:1;display:flex;flex-direction:column;overflow:hidden}
@@ -94,11 +239,21 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:v
 .arr-vide{text-align:center;color:var(--tx3);padding:56px 20px}
 .arr-vide-ico{font-size:44px;margin-bottom:12px}
 .arr-vide p{font-size:14px;line-height:1.75}
+
+/* Item arrivée */
 .arr-item{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--s1);border:1px solid var(--b1);border-radius:14px;margin-bottom:7px;animation:glisse .22s ease}
 @keyframes glisse{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
 .arr-rang{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',cursive;font-size:15px;flex-shrink:0}
 .r1{background:#FFD700;color:#000}.r2{background:#C0C0C0;color:#000}.r3{background:#CD7F32;color:#fff}.rn{background:var(--s2);color:var(--tx2);font-size:13px}
-.arr-t{font-family:'DM Mono',monospace;font-size:17px;font-weight:500;color:var(--orng);min-width:92px}
+
+/* Badge numéro dossard */
+.arr-dossard{
+  font-family:'DM Mono',monospace;font-size:15px;font-weight:700;
+  background:var(--s3);border:1px solid var(--b2);
+  border-radius:8px;padding:3px 10px;
+  color:var(--cyan);min-width:48px;text-align:center;flex-shrink:0;
+}
+.arr-t{font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:var(--orng);min-width:88px}
 .arr-prenom{flex:1;background:none;border:none;color:var(--tx);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:500;outline:none;border-bottom:1px solid transparent;transition:border-color .2s}
 .arr-prenom:focus{border-color:var(--b2)}
 .arr-prenom::placeholder{color:var(--tx3)}
@@ -121,9 +276,9 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:v
 #vocal-barre.actif{display:flex;transform:translateX(-50%) translateY(0);opacity:1}
 .point-vocal{width:8px;height:8px;border-radius:50%;background:var(--orng);animation:vPulse .9s ease-in-out infinite}
 @keyframes vPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.5);opacity:.4}}
-#vocal-txt{font-size:12px}
+#vocal-txt{font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-/* ===== ÉCRAN MULTI ===== */
+/* ===== MULTI ===== */
 #ecran-multi{padding:16px}
 .multi-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .multi-titre{font-family:'Bebas Neue',cursive;font-size:30px;letter-spacing:.12em}
@@ -149,10 +304,13 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:v
 .multi-vide-ico{font-size:48px;margin-bottom:14px}
 .multi-vide p{font-size:14px;line-height:1.75}
 
+/* Paysage */
 @media(orientation:landscape){
-  #g-temps{font-size:clamp(58px,16vw,148px)}
+  #g-temps{font-size:200px} /* recalculé par fitGeant */
+  .logo-app{width:48px;height:48px}
   #ecran-arr{flex-direction:row}
-  .arr-haut{width:300px;min-width:260px;flex-shrink:0;border-bottom:none;border-right:1px solid var(--b2);overflow-y:auto}
+  .arr-haut{width:320px;min-width:280px;flex-shrink:0;border-bottom:none;border-right:1px solid var(--b2);overflow-y:auto}
+  #cam-video{max-height:160px}
   .multi-grille{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
   #nav-bas button{padding:8px 4px 10px}
 }
@@ -167,10 +325,12 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:v
     <!-- GÉANT -->
     <div class="ecran visible" id="ecran-geant">
       <img src="logo.png" alt="" class="logo-app" onerror="this.style.display='none'">
-      <div class="g-titre">CHRONOMÈTRE</div>
-      <div id="g-temps" class="stop">00:00</div>
-      <div id="g-cs">.00</div>
-      <div id="g-etat">PRÊT</div>
+      <div class="g-milieu">
+        <div class="g-titre">CHRONOMÈTRE</div>
+        <div id="g-temps" class="stop">00:00</div>
+        <div id="g-cs">.00</div>
+        <div id="g-etat">PRÊT</div>
+      </div>
       <div class="g-ctrl">
         <button class="btn bxl bcyan" id="g-btn" onclick="gToggle()">
           <svg id="g-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:22px;height:22px;stroke-width:2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -186,6 +346,7 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:v
     <!-- ARRIVÉES -->
     <div class="ecran" id="ecran-arr">
       <div class="arr-haut">
+        <!-- Ligne 1 : timer + boutons principaux -->
         <div class="arr-ligne1">
           <div id="arr-temps">00:00.0</div>
           <div class="arr-ctrl">
@@ -193,7 +354,7 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:v
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:15px;height:15px;stroke-width:2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
               <span id="arr-lbl">GO</span>
             </button>
-            <button class="btn bmd bgrn" onclick="aRecord()">
+            <button class="btn bmd bgrn" id="btn-arrivee" onclick="aRecord(null)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:14px;height:14px;stroke-width:2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               ARRIVÉE
             </button>
@@ -202,11 +363,23 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:v
             </button>
           </div>
         </div>
+
+        <!-- Onglets mode -->
         <div class="arr-onglets">
           <button class="ong sel" onclick="aMode('chrono',this)">⏱ Chrono</button>
           <button class="ong" onclick="aMode('minuteur',this)">⏳ Minuteur</button>
           <button class="ong" id="ong-vocal" onclick="vToggle()">🎤 Vocal</button>
+          <button class="ong" id="ong-cam" onclick="camToggle()">📷 Dossard</button>
         </div>
+
+        <!-- Saisie manuelle numéro dossard (mode caméra désactivée) -->
+        <div id="dossard-zone" class="dossard-zone">
+          <input id="dossard-input" type="number" placeholder="N°" min="1" max="9999"
+                 inputmode="numeric" oninput="this.value=this.value.slice(0,4)">
+          <span class="min-lbl">→ ajouté au prochain ↓ ARRIVÉE</span>
+        </div>
+
+        <!-- Minuteur setup -->
         <div class="min-zone" id="min-zone">
           <input class="min-champ" id="champ-min" type="number" value="1" min="0" max="99">
           <span class="min-lbl">min</span>
@@ -214,10 +387,19 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:v
           <span class="min-lbl">sec</span>
           <button class="btn bsm bcyan" onclick="aDefMin()">OK</button>
         </div>
-        <div class="barre-prog" id="barre-prog">
-          <div id="barre-fill"></div>
+        <div class="barre-prog" id="barre-prog"><div id="barre-fill"></div></div>
+
+        <!-- Viewfinder caméra -->
+        <div id="cam-zone">
+          <video id="cam-video" autoplay playsinline muted></video>
+          <div id="cam-viseur"></div>
+          <div id="cam-scan-line"></div>
+          <div id="cam-numero-lu">Pointez un dossard…</div>
+          <div id="cam-flash"></div>
         </div>
       </div>
+
+      <!-- Liste arrivées -->
       <div class="arr-droite">
         <div class="arr-entete">
           <span id="arr-ttl">ARRIVÉES</span>
@@ -237,7 +419,8 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:v
         <div id="arr-liste">
           <div class="arr-vide" id="arr-vide">
             <div class="arr-vide-ico">🏁</div>
-            <p>Lance le chrono puis tape<br><strong>ARRIVÉE</strong> à chaque passage.<br><br>Nomme chaque élève à la main<br>ou avec la commande vocale 🎤</p>
+            <p>Lance le chrono puis tape<br><strong>ARRIVÉE</strong> à chaque passage.<br><br>
+            Active <strong>📷 Dossard</strong> pour lire<br>les numéros automatiquement à la caméra.</p>
           </div>
         </div>
       </div>
@@ -262,7 +445,6 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:v
         </div>
       </div>
     </div>
-
   </div>
 
   <nav id="nav-bas">
@@ -287,191 +469,189 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:v
 <script>
 'use strict';
 
-/* ── OUTILS ─────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════
+   OUTILS
+═══════════════════════════════════════════════════════ */
 function getId(id) { return document.getElementById(id); }
 function zer(n) { return String(Math.floor(n)).padStart(2,'0'); }
 function fmtTemps(ms, dec) {
   if (dec === undefined) dec = 2;
-  var s = ms / 1000, m = Math.floor(s/60), sc = Math.floor(s%60);
-  var cs = Math.floor((ms%1000) / (dec===1 ? 100 : 10));
-  return zer(m) + ':' + zer(sc) + '.' + (dec===1 ? cs : String(cs).padStart(2,'0'));
+  var s=ms/1000, m=Math.floor(s/60), sc=Math.floor(s%60);
+  var cs=Math.floor((ms%1000)/(dec===1?100:10));
+  return zer(m)+':'+zer(sc)+'.'+(dec===1?cs:String(cs).padStart(2,'0'));
 }
 var _tmrToast;
 function toast(msg, col) {
-  if (!col) col = 'var(--grn)';
-  var t = getId('msg-toast');
-  t.textContent = msg; t.style.color = col;
+  if (!col) col='var(--grn)';
+  var t=getId('msg-toast');
+  t.textContent=msg; t.style.color=col;
   t.classList.add('show');
   clearTimeout(_tmrToast);
-  _tmrToast = setTimeout(function(){ t.classList.remove('show'); }, 2200);
+  _tmrToast=setTimeout(function(){ t.classList.remove('show'); },2400);
 }
-document.addEventListener('click', function(e){
+document.addEventListener('click',function(e){
   if (!e.target.closest('.exp-wrap')) getId('exp-menu').classList.remove('ouvert');
 });
 
-/* ── NAV ─────────────────────────────────────── */
-var tousEcrans = document.querySelectorAll('.ecran');
-var tousBtnsNav = document.querySelectorAll('#nav-bas button');
-function navVers(idx, btn) {
-  tousEcrans.forEach(function(e,i){ e.classList.toggle('visible', i===idx); });
-  tousBtnsNav.forEach(function(b,i){ b.classList.toggle('sel', i===idx); });
+/* ── Navigation ── */
+var tousEcrans=document.querySelectorAll('.ecran');
+var tousBtnsNav=document.querySelectorAll('#nav-bas button');
+function navVers(idx,btn) {
+  tousEcrans.forEach(function(e,i){ e.classList.toggle('visible',i===idx); });
+  tousBtnsNav.forEach(function(b,i){ b.classList.toggle('sel',i===idx); });
+  // Arrêter la caméra si on quitte la page arrivées
+  if (idx!==1 && camActif) camStop();
 }
 
-/* ════════════════════════════════════════════════
-   GÉANT
-════════════════════════════════════════════════ */
-var geant = { actif:false, debut:null, ecoule:0, raf:null };
+/* ═══════════════════════════════════════════════════════
+   PAGE 1 — GÉANT
+═══════════════════════════════════════════════════════ */
+var geant={ actif:false, debut:null, ecoule:0, raf:null };
 
 function geantTick() {
-  geant.ecoule = performance.now() - geant.debut;
-  var s=geant.ecoule/1000, m=Math.floor(s/60), sc=Math.floor(s%60);
-  getId('g-temps').textContent = zer(m)+':'+zer(sc);
-  getId('g-cs').textContent = '.'+String(Math.floor((geant.ecoule%1000)/10)).padStart(2,'0');
-  geant.raf = requestAnimationFrame(geantTick);
+  geant.ecoule=performance.now()-geant.debut;
+  var s=geant.ecoule/1000;
+  getId('g-temps').textContent=zer(Math.floor(s/60))+':'+zer(Math.floor(s%60));
+  getId('g-cs').textContent='.'+String(Math.floor((geant.ecoule%1000)/10)).padStart(2,'0');
+  geant.raf=requestAnimationFrame(geantTick);
 }
-
 function gToggle() {
   if (!geant.actif) {
-    geant.debut = performance.now() - geant.ecoule;
-    geant.actif = true;
-    geant.raf = requestAnimationFrame(geantTick);
-    getId('g-temps').className = 'run';
-    getId('g-lbl').textContent = 'ARRÊTER';
-    getId('g-ico').innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
-    getId('g-btn').className = 'btn bxl borng';
-    getId('g-etat').style.color = 'var(--orng)';
-    getId('g-etat').textContent = 'EN COURS';
+    geant.debut=performance.now()-geant.ecoule; geant.actif=true;
+    geant.raf=requestAnimationFrame(geantTick);
+    getId('g-temps').className='run';
+    getId('g-lbl').textContent='ARRÊTER';
+    getId('g-ico').innerHTML='<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+    getId('g-btn').className='btn bxl borng';
+    getId('g-etat').style.color='var(--orng)'; getId('g-etat').textContent='EN COURS';
   } else {
-    cancelAnimationFrame(geant.raf); geant.actif = false;
-    getId('g-temps').className = 'stop';
-    getId('g-lbl').textContent = 'REPRENDRE';
-    getId('g-ico').innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
-    getId('g-btn').className = 'btn bxl bcyan';
-    getId('g-etat').style.color = 'var(--tx2)';
-    getId('g-etat').textContent = 'ARRÊTÉ';
+    cancelAnimationFrame(geant.raf); geant.actif=false;
+    getId('g-temps').className='stop';
+    getId('g-lbl').textContent='REPRENDRE';
+    getId('g-ico').innerHTML='<polygon points="5 3 19 12 5 21 5 3"/>';
+    getId('g-btn').className='btn bxl bcyan';
+    getId('g-etat').style.color='var(--tx2)'; getId('g-etat').textContent='ARRÊTÉ';
   }
 }
-
 function gReset() {
   cancelAnimationFrame(geant.raf);
   geant.actif=false; geant.debut=null; geant.ecoule=0; geant.raf=null;
-  getId('g-temps').className = 'stop';
-  getId('g-temps').textContent = '00:00';
-  getId('g-cs').textContent = '.00';
-  getId('g-lbl').textContent = 'DÉMARRER';
-  getId('g-ico').innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
-  getId('g-btn').className = 'btn bxl bcyan';
-  getId('g-etat').style.color = 'var(--tx3)';
-  getId('g-etat').textContent = 'PRÊT';
+  getId('g-temps').className='stop'; getId('g-temps').textContent='00:00';
+  getId('g-cs').textContent='.00'; getId('g-lbl').textContent='DÉMARRER';
+  getId('g-ico').innerHTML='<polygon points="5 3 19 12 5 21 5 3"/>';
+  getId('g-btn').className='btn bxl bcyan';
+  getId('g-etat').style.color='var(--tx3)'; getId('g-etat').textContent='PRÊT';
 }
 
-/* ════════════════════════════════════════════════
-   ARRIVÉES — UID stable, pas de bug d'index
-════════════════════════════════════════════════ */
-var arr = {
+/* ═══════════════════════════════════════════════════════
+   PAGE 2 — ARRIVÉES
+═══════════════════════════════════════════════════════ */
+var arr={
   actif:false, debut:null, ecoule:0, raf:null,
   mode:'chrono', minTotal:0, minDebut:null,
   liste:[], nextUid:0, vocalOn:false
 };
 
 function arrTick() {
-  var now = performance.now();
-  if (arr.mode === 'chrono') {
-    arr.ecoule = now - arr.debut;
-    getId('arr-temps').textContent = fmtTemps(arr.ecoule, 1);
+  var now=performance.now();
+  if (arr.mode==='chrono') {
+    arr.ecoule=now-arr.debut;
+    getId('arr-temps').textContent=fmtTemps(arr.ecoule,1);
   } else {
-    var r = arr.minTotal - (now - arr.minDebut);
-    if (r <= 0) {
-      getId('arr-temps').textContent = '00:00.0';
-      getId('arr-temps').style.color = 'var(--red)';
-      getId('barre-fill').style.width = '0%';
+    var r=arr.minTotal-(now-arr.minDebut);
+    if (r<=0) {
+      getId('arr-temps').textContent='00:00.0';
+      getId('arr-temps').style.color='var(--red)';
+      getId('barre-fill').style.width='0%';
       aStop(); toast('⏰ Temps écoulé !','var(--red)'); return;
     }
-    getId('arr-temps').textContent = fmtTemps(r, 1);
-    getId('barre-fill').style.width = (r/arr.minTotal*100)+'%';
-    getId('barre-fill').style.background = r/arr.minTotal < 0.2 ? 'var(--red)' : 'var(--orng)';
+    getId('arr-temps').textContent=fmtTemps(r,1);
+    getId('barre-fill').style.width=(r/arr.minTotal*100)+'%';
+    getId('barre-fill').style.background=r/arr.minTotal<0.2?'var(--red)':'var(--orng)';
   }
-  arr.raf = requestAnimationFrame(arrTick);
+  arr.raf=requestAnimationFrame(arrTick);
 }
 
 function aToggle() {
   if (!arr.actif) {
-    if (arr.mode==='minuteur' && !arr.minTotal) { toast('Configure le minuteur','var(--orng)'); return; }
-    arr.actif = true;
-    if (arr.mode==='chrono') {
-      arr.debut = performance.now() - arr.ecoule;
-    } else {
-      arr.minDebut = performance.now();
-      getId('arr-temps').style.color = 'var(--orng)';
-    }
-    getId('arr-lbl').textContent = 'STOP';
-    getId('arr-btn').className = 'btn bmd bred';
-    arr.raf = requestAnimationFrame(arrTick);
-  } else { aStop(); }
+    if (arr.mode==='minuteur'&&!arr.minTotal){ toast('Configure le minuteur','var(--orng)'); return; }
+    arr.actif=true;
+    if (arr.mode==='chrono'){ arr.debut=performance.now()-arr.ecoule; }
+    else { arr.minDebut=performance.now(); getId('arr-temps').style.color='var(--orng)'; }
+    getId('arr-lbl').textContent='STOP'; getId('arr-btn').className='btn bmd bred';
+    arr.raf=requestAnimationFrame(arrTick);
+  } else aStop();
 }
-
 function aStop() {
-  cancelAnimationFrame(arr.raf); arr.actif = false;
-  getId('arr-lbl').textContent = 'GO';
-  getId('arr-btn').className = 'btn bmd borng';
+  cancelAnimationFrame(arr.raf); arr.actif=false;
+  getId('arr-lbl').textContent='GO'; getId('arr-btn').className='btn bmd borng';
 }
-
 function aReset() {
   aStop();
   arr.ecoule=0; arr.minDebut=null; arr.liste=[]; arr.nextUid=0;
-  getId('arr-temps').textContent = arr.mode==='chrono' ? '00:00.0' : '--:--.-';
-  getId('arr-temps').style.color = 'var(--orng)';
-  getId('barre-fill').style.width = '100%';
-  getId('barre-fill').style.background = 'var(--orng)';
+  getId('arr-temps').textContent=arr.mode==='chrono'?'00:00.0':'--:--.-';
+  getId('arr-temps').style.color='var(--orng)';
+  getId('barre-fill').style.width='100%'; getId('barre-fill').style.background='var(--orng)';
   arrRendre();
 }
 
-function aRecord() {
+/* ── Enregistrer une arrivée ──────────────────────────
+   dossardNum: numéro détecté (string) ou null
+──────────────────────────────────────────────────── */
+function aRecord(dossardNum) {
   var t;
   if (arr.mode==='chrono') {
     if (!arr.actif && arr.ecoule===0) return;
-    t = arr.actif ? performance.now()-arr.debut : arr.ecoule;
+    t=arr.actif?performance.now()-arr.debut:arr.ecoule;
   } else {
     if (!arr.minDebut) return;
-    t = Math.max(0, arr.minTotal-(performance.now()-arr.minDebut));
+    t=Math.max(0,arr.minTotal-(performance.now()-arr.minDebut));
   }
-  arr.liste.push({ uid:arr.nextUid++, temps:t, nom:'' });
+  // Numéro dossard : depuis paramètre, ou depuis champ saisie
+  var num=dossardNum||null;
+  if (!num) {
+    var inp=getId('dossard-input');
+    if (inp && inp.value.trim()!=='') { num=inp.value.trim(); inp.value=''; }
+  }
+  arr.liste.push({ uid:arr.nextUid++, temps:t, nom:'', dossard:num });
   arrRendre();
 }
 
 function arrNom(uid, val) {
-  var item = null;
-  for (var i=0; i<arr.liste.length; i++) { if (arr.liste[i].uid===uid) { item=arr.liste[i]; break; } }
-  if (item) item.nom = val;
+  for(var i=0;i<arr.liste.length;i++){ if(arr.liste[i].uid===uid){ arr.liste[i].nom=val; break; } }
 }
-
+function arrDossard(uid, val) {
+  for(var i=0;i<arr.liste.length;i++){ if(arr.liste[i].uid===uid){ arr.liste[i].dossard=val; break; } }
+}
 function arrDel(uid) {
-  arr.liste = arr.liste.filter(function(a){ return a.uid!==uid; });
+  arr.liste=arr.liste.filter(function(a){ return a.uid!==uid; });
   arrRendre();
 }
 
 function arrRendre() {
-  var liste = getId('arr-liste');
-  var vide  = getId('arr-vide');
+  var liste=getId('arr-liste'), vide=getId('arr-vide');
   if (arr.liste.length===0) {
     vide.style.display='block';
     Array.from(liste.children).forEach(function(c){ if(c!==vide) c.remove(); });
     return;
   }
   vide.style.display='none';
-  var trie = arr.liste.slice().sort(function(a,b){
-    return arr.mode==='chrono' ? a.temps-b.temps : b.temps-a.temps;
+  var trie=arr.liste.slice().sort(function(a,b){
+    return arr.mode==='chrono'?a.temps-b.temps:b.temps-a.temps;
   });
-  var fuUid = (document.activeElement && document.activeElement.dataset && document.activeElement.dataset.uid)
-    ? parseInt(document.activeElement.dataset.uid) : null;
+  var fuUid=(document.activeElement&&document.activeElement.dataset&&document.activeElement.dataset.uid)
+    ?parseInt(document.activeElement.dataset.uid):null;
   liste.innerHTML=''; liste.appendChild(vide);
   trie.forEach(function(item, rang) {
-    var rc = rang===0?'r1':rang===1?'r2':rang===2?'r3':'rn';
-    var med = rang===0?'🥇':rang===1?'🥈':rang===2?'🥉':(rang+1);
-    var div = document.createElement('div');
-    div.className='arr-item';
-    div.innerHTML =
+    var rc=rang===0?'r1':rang===1?'r2':rang===2?'r3':'rn';
+    var med=rang===0?'🥇':rang===1?'🥈':rang===2?'🥉':(rang+1);
+    var div=document.createElement('div'); div.className='arr-item';
+    div.innerHTML=
       '<div class="arr-rang '+rc+'">'+med+'</div>'+
+      '<input class="arr-dossard" data-uid-d="'+item.uid+'" '+
+        'value="'+(item.dossard||'').replace(/"/g,'&quot;')+'" '+
+        'placeholder="N°" inputmode="numeric" style="width:54px;border:none;outline:none;background:var(--s3);border-radius:8px;font-family:\'DM Mono\',monospace;font-size:15px;font-weight:700;color:var(--cyan);text-align:center;padding:3px 6px" '+
+        'oninput="arrDossard('+item.uid+',this.value)">'+
       '<div class="arr-t">'+fmtTemps(item.temps,2)+'</div>'+
       '<input class="arr-prenom" data-uid="'+item.uid+'" '+
         'value="'+item.nom.replace(/"/g,'&quot;')+'" placeholder="Prénom…" '+
@@ -480,52 +660,338 @@ function arrRendre() {
     liste.appendChild(div);
   });
   if (fuUid!==null) {
-    var ef = liste.querySelector('input[data-uid="'+fuUid+'"]');
-    if (ef) { ef.focus(); var l=ef.value.length; ef.setSelectionRange(l,l); }
+    var ef=liste.querySelector('input[data-uid="'+fuUid+'"]');
+    if (ef){ ef.focus(); var l=ef.value.length; ef.setSelectionRange(l,l); }
   }
 }
 
 function aMode(mode, btn) {
-  arr.mode = mode;
+  arr.mode=mode;
   document.querySelectorAll('.ong').forEach(function(b){ b.classList.remove('sel'); });
   btn.classList.add('sel');
-  var isMin = mode==='minuteur';
-  getId('min-zone').classList.toggle('show', isMin);
-  getId('barre-prog').classList.toggle('show', isMin);
-  getId('arr-ttl').textContent = isMin ? 'TEMPS ENREGISTRÉS' : 'ARRIVÉES';
+  var isMin=mode==='minuteur';
+  getId('min-zone').classList.toggle('show',isMin);
+  getId('barre-prog').classList.toggle('show',isMin);
+  getId('arr-ttl').textContent=isMin?'TEMPS ENREGISTRÉS':'ARRIVÉES';
   aReset();
 }
-
 function aDefMin() {
-  var m = parseInt(getId('champ-min').value)||0;
-  var s = parseInt(getId('champ-sec').value)||0;
-  arr.minTotal = (m*60+s)*1000;
-  if (arr.minTotal>0) {
-    getId('arr-temps').textContent = fmtTemps(arr.minTotal,1);
-    getId('barre-fill').style.width='100%';
-    toast('⏳ '+m+'min '+s+'s');
+  var m=parseInt(getId('champ-min').value)||0, s=parseInt(getId('champ-sec').value)||0;
+  arr.minTotal=(m*60+s)*1000;
+  if (arr.minTotal>0){ getId('arr-temps').textContent=fmtTemps(arr.minTotal,1); getId('barre-fill').style.width='100%'; toast('⏳ '+m+'min '+s+'s'); }
+}
+
+/* ─────────────────────────────────────────────────────
+   CAMÉRA + OCR DOSSARDS
+   Tesseract.js lit les frames vidéo en continu.
+   On cherche uniquement des chiffres (1–4 digits).
+   Un numéro doit être vu 3 fois consécutives pour
+   être validé → évite les faux positifs.
+   Après validation, cooldown de 4 sec pour ne pas
+   enregistrer deux fois le même coureur.
+───────────────────────────────────────────────────── */
+var camActif = false;
+var camStream = null;
+var camWorker = null;
+var camLoop = null;
+var camDernier = '';      // dernier numéro confirmé
+var camConsecutifs = 0;   // nb de lectures consécutives du même numéro
+var camCooldown = {};     // num → timestamp dernière enregistration
+var CAM_CONSEC_MIN = 3;   // lectures consécutives avant validation
+var CAM_COOLDOWN_MS = 4000; // 4 sec entre deux enregistrements du même dossard
+
+function camToggle() {
+  if (!camActif) { camDemarrer(); }
+  else { camStop(); }
+}
+
+function camDemarrer() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    toast('Caméra non disponible sur ce navigateur','var(--red)'); return;
+  }
+  var constraints={ video:{ facingMode:'environment', width:{ideal:1280}, height:{ideal:720} } };
+  navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
+    camStream=stream;
+    var vid=getId('cam-video');
+    vid.srcObject=stream;
+    vid.play();
+    camActif=true;
+    getId('ong-cam').classList.add('cam-on');
+    getId('ong-cam').textContent='🔴 Scan';
+    getId('cam-zone').classList.add('show');
+    getId('cam-scan-line').classList.add('actif');
+    getId('dossard-zone').classList.remove('show');
+    toast('📷 Caméra active — pointez un dossard');
+    // Init Tesseract worker
+    camInitWorker();
+  }).catch(function(err) {
+    console.warn('[CAM]',err);
+    // Fallback : saisie manuelle
+    toast('Caméra refusée — saisie manuelle','var(--orng)');
+    getId('dossard-zone').classList.add('show');
+  });
+}
+
+function camInitWorker() {
+  Tesseract.createWorker('eng', 1, {
+    logger: function() {}
+  }).then(function(worker) {
+    camWorker=worker;
+    worker.setParameters({
+      tessedit_char_whitelist:'0123456789',
+      tessedit_pageseg_mode:'7'   // PSM_SINGLE_LINE — plus rapide
+    });
+    camBoucle();
+  });
+}
+
+function camBoucle() {
+  if (!camActif) return;
+  camLireFrame(function() {
+    camLoop=setTimeout(camBoucle, 350); // toutes les 350ms
+  });
+}
+
+function camLireFrame(cb) {
+  var vid=getId('cam-video');
+  if (!vid || vid.readyState<2) { if(cb) cb(); return; }
+
+  // Dessiner uniquement la zone du viseur
+  var canvas=document.createElement('canvas');
+  var vw=vid.videoWidth, vh=vid.videoHeight;
+  if (!vw || !vh) { if(cb) cb(); return; }
+
+  // Zone centrale : 50% largeur, 35% hauteur
+  var cw=Math.floor(vw*0.5), ch=Math.floor(vh*0.35);
+  var cx=Math.floor((vw-cw)/2), cy=Math.floor((vh-ch)/2);
+  canvas.width=cw; canvas.height=ch;
+  var ctx=canvas.getContext('2d');
+
+  // Prétraitement : niveaux de gris + contraste
+  ctx.drawImage(vid, cx, cy, cw, ch, 0, 0, cw, ch);
+  var imgData=ctx.getImageData(0,0,cw,ch);
+  var d=imgData.data;
+  for(var i=0;i<d.length;i+=4){
+    var gray=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+    // Binarisation : seuil 128
+    var val=gray>128?255:0;
+    d[i]=d[i+1]=d[i+2]=val;
+  }
+  ctx.putImageData(imgData,0,0);
+
+  if (!camWorker) { if(cb) cb(); return; }
+  camWorker.recognize(canvas).then(function(result) {
+    var txt=(result.data.text||'').replace(/\D/g,'').trim();
+    // Garder uniquement 1–4 chiffres
+    var num=txt.match(/^\d{1,4}$/)?txt:null;
+    camTraiterLecture(num);
+    if(cb) cb();
+  }).catch(function(){ if(cb) cb(); });
+}
+
+function camTraiterLecture(num) {
+  var lbl=getId('cam-numero-lu');
+  if (!num) {
+    if (camConsecutifs>0) camConsecutifs=0;
+    lbl.textContent='Pointez un dossard…'; lbl.classList.remove('confirme');
+    return;
+  }
+
+  if (num===camDernier) {
+    camConsecutifs++;
+    lbl.textContent='Dossard '+num+' — '+(CAM_CONSEC_MIN-Math.min(camConsecutifs,CAM_CONSEC_MIN)+1)+' lecture'+( camConsecutifs<CAM_CONSEC_MIN?'s restantes':'')+'…';
+    lbl.classList.remove('confirme');
+    if (camConsecutifs>=CAM_CONSEC_MIN) {
+      camValider(num);
+    }
+  } else {
+    camDernier=num; camConsecutifs=1;
+    lbl.textContent='Dossard '+num+' détecté…'; lbl.classList.remove('confirme');
   }
 }
 
-/* ── Export ─────────────────────────────── */
+function camValider(num) {
+  var now=Date.now();
+  // Cooldown : si ce dossard a déjà été enregistré récemment → ignorer
+  if (camCooldown[num] && now-camCooldown[num]<CAM_COOLDOWN_MS) {
+    getId('cam-numero-lu').textContent='Dossard '+num+' déjà enregistré — attendez…';
+    return;
+  }
+  camCooldown[num]=now;
+  camDernier=''; camConsecutifs=0;
+
+  // Flash visuel
+  var flash=getId('cam-flash');
+  flash.style.opacity='0.5';
+  setTimeout(function(){ flash.style.opacity='0'; },120);
+
+  // Enregistrer l'arrivée avec le numéro
+  aRecord(num);
+  getId('cam-numero-lu').textContent='✓ Dossard '+num+' — ENREGISTRÉ !';
+  getId('cam-numero-lu').classList.add('confirme');
+  toast('📷 Dossard '+num+' enregistré !','var(--cyan)');
+  setTimeout(function(){
+    getId('cam-numero-lu').textContent='Pointez un dossard…';
+    getId('cam-numero-lu').classList.remove('confirme');
+  },2000);
+}
+
+function camStop() {
+  camActif=false;
+  clearTimeout(camLoop);
+  if (camWorker) { camWorker.terminate(); camWorker=null; }
+  if (camStream) { camStream.getTracks().forEach(function(t){ t.stop(); }); camStream=null; }
+  getId('ong-cam').classList.remove('cam-on');
+  getId('ong-cam').textContent='📷 Dossard';
+  getId('cam-zone').classList.remove('show');
+  getId('cam-scan-line').classList.remove('actif');
+}
+
+/* ─────────────────────────────────────────────────────
+   VOCAL — Zéro délai avec interimResults
+   Stratégie :
+   - continuous=true + interimResults=true
+   - On écoute les résultats intermédiaires
+   - Dès qu'un mot-clé est détecté dans le flux interim
+     → action immédiate, pas d'attente fin de phrase
+   - Sur iOS/Safari où continuous plante : fallback
+     sessions courtes avec restart auto
+───────────────────────────────────────────────────── */
+var recogObj=null, recogTmr=null, recogActif=false;
+var dernierMotCle=''; // évite les doublons sur résultats finaux
+
+function vocalDemarrer() {
+  if (!arr.vocalOn) return;
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if (!SR) return;
+
+  recogObj=new SR();
+  recogObj.lang='fr-FR';
+  recogObj.maxAlternatives=3;
+
+  // Détecter iOS/Safari pour choisir la stratégie
+  var isIOS=/iP(hone|ad|od)/.test(navigator.userAgent);
+  recogObj.continuous=!isIOS;
+  recogObj.interimResults=!isIOS; // interim seulement si continuous fonctionne
+
+  recogObj.onresult=function(e) {
+    var n=e.results.length;
+    for (var i=e.resultIndex;i<n;i++) {
+      var res=e.results[i];
+      var txt=res[0].transcript.trim().toLowerCase();
+      var estFinal=res.isFinal;
+
+      // Sur iOS (pas d'interim) : traiter chaque résultat final
+      // Sur autres navigateurs : traiter aussi les intermédiaires pour les mots-clés courts
+      if (!estFinal && txt.length<4) continue; // pas de faux positifs sur < 4 chars
+
+      vocalTraiter(txt, estFinal);
+    }
+  };
+
+  recogObj.onend=function() {
+    // Relance auto si toujours actif
+    if (arr.vocalOn) recogTmr=setTimeout(vocalDemarrer, 150);
+  };
+  recogObj.onerror=function(e) {
+    if (e.error==='no-speech'||e.error==='audio-capture') {
+      if (arr.vocalOn) recogTmr=setTimeout(vocalDemarrer,300);
+    } else { vocalStop(); toast('🎤 '+e.error,'var(--red)'); }
+  };
+  try { recogObj.start(); recogActif=true; } catch(e) {}
+}
+
+function vocalStop() {
+  clearTimeout(recogTmr);
+  try{ if(recogObj) recogObj.abort(); }catch(e){}
+  recogObj=null; recogActif=false; arr.vocalOn=false;
+  getId('ong-vocal').textContent='🎤 Vocal'; getId('ong-vocal').classList.remove('vocal-on');
+  getId('vocal-barre').classList.remove('actif');
+}
+
+function vToggle() {
+  if (!arr.vocalOn) {
+    if (!('webkitSpeechRecognition'in window)&&!('SpeechRecognition'in window)) {
+      toast('Vocal non disponible','var(--red)'); return;
+    }
+    arr.vocalOn=true;
+    getId('ong-vocal').textContent='🔴 ON'; getId('ong-vocal').classList.add('vocal-on');
+    getId('vocal-barre').classList.add('actif');
+    vocalDemarrer(); toast('🎤 Vocal activé — dites "arrivée"');
+  } else vocalStop();
+}
+
+/* Traitement vocal avec déduplication ─────────────── */
+var vocalLastAction=0; // timestamp dernière action vocale
+var VOCAL_DEBOUNCE=800; // ms mini entre deux actions
+
+function vocalTraiter(txt, estFinal) {
+  var now=Date.now();
+  getId('vocal-txt').textContent='"'+txt+'"';
+
+  // ── Commandes immédiates (mot-clé exact ou approché) ──
+  if (/\barriv[eé]e\b|arrivee|suivant|next\b|passage\b/.test(txt)) {
+    if (now-vocalLastAction<VOCAL_DEBOUNCE) return;
+    vocalLastAction=now;
+    aRecord(null); toast('📍 Arrivée !','var(--grn)'); return;
+  }
+  if (/\bgo\b|d[eé]marre\b/.test(txt) && !arr.actif) {
+    if (now-vocalLastAction<VOCAL_DEBOUNCE) return;
+    vocalLastAction=now; aToggle(); return;
+  }
+  if (/\bstop\b|arr[eê]te\b/.test(txt) && arr.actif) {
+    if (now-vocalLastAction<VOCAL_DEBOUNCE) return;
+    vocalLastAction=now; aStop(); return;
+  }
+  if (/\breset\b|recommence\b/.test(txt)) {
+    if (now-vocalLastAction<VOCAL_DEBOUNCE) return;
+    vocalLastAction=now; aReset(); return;
+  }
+
+  // ── Nommage (uniquement sur résultat final) ──
+  if (!estFinal) return;
+  var prenom=txt.charAt(0).toUpperCase()+txt.slice(1).trim();
+  if (prenom.length<2 || prenom.length>25) return; // filtre les bruits
+
+  var sansNom=null;
+  for(var i=arr.liste.length-1;i>=0;i--){ if(arr.liste[i].nom.trim()===''){sansNom=arr.liste[i];break;} }
+  if (sansNom) {
+    arrNom(sansNom.uid,prenom); arrRendre(); toast('✅ '+prenom);
+  } else {
+    aRecord(null);
+    var last=arr.liste[arr.liste.length-1];
+    if (last){ arrNom(last.uid,prenom); arrRendre(); }
+    toast('📍 '+prenom);
+  }
+}
+
+/* ── Export ─────────────────────────────────────── */
 function expOuvrir(e) {
   e.stopPropagation();
-  if (arr.liste.length===0) { toast('Aucune arrivée','var(--orng)'); return; }
+  if (arr.liste.length===0){ toast('Aucune arrivée','var(--orng)'); return; }
   getId('exp-menu').classList.toggle('ouvert');
 }
 function expTrie() {
-  return arr.liste.slice().sort(function(a,b){ return arr.mode==='chrono' ? a.temps-b.temps : b.temps-a.temps; });
+  return arr.liste.slice().sort(function(a,b){
+    return arr.mode==='chrono'?a.temps-b.temps:b.temps-a.temps;
+  });
 }
 function expTexte() {
   var s=expTrie(), date=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
-  var t='ChronoClass — '+(arr.mode==='chrono'?'Arrivées':'Minuteur')+'\n'+date+'\n'+'─'.repeat(32)+'\n';
-  s.forEach(function(it,i){ var m=i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'.'; t+=m+' '+(it.nom||'(sans nom)')+'  '+fmtTemps(it.temps,2)+'\n'; });
+  var t='ChronoClass\n'+date+'\n'+'─'.repeat(36)+'\n';
+  s.forEach(function(it,i){
+    var m=i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'.';
+    var d=it.dossard?('['+it.dossard+'] '):'';
+    t+=m+' '+d+(it.nom||'(sans nom)')+'  '+fmtTemps(it.temps,2)+'\n';
+  });
   return t;
 }
 function expCSV() {
   getId('exp-menu').classList.remove('ouvert');
-  var csv='Rang,Prenom,Temps\n';
-  expTrie().forEach(function(it,i){ csv+=(i+1)+',"'+(it.nom||'').replace(/"/g,' ')+'","'+fmtTemps(it.temps,2)+'"\n'; });
+  var csv='Rang,Dossard,Prenom,Temps\n';
+  expTrie().forEach(function(it,i){
+    csv+=(i+1)+',"'+(it.dossard||'')+'","'+(it.nom||'').replace(/"/g,' ')+'","'+fmtTemps(it.temps,2)+'"\n';
+  });
   var a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}));
   a.download='arrivees_'+new Date().toISOString().slice(0,10)+'.csv';
@@ -533,7 +999,7 @@ function expCSV() {
 }
 function expCopier() {
   getId('exp-menu').classList.remove('ouvert'); var txt=expTexte();
-  if (navigator.clipboard && navigator.clipboard.writeText) {
+  if (navigator.clipboard&&navigator.clipboard.writeText) {
     navigator.clipboard.writeText(txt).then(function(){ toast('📋 Copié !'); });
   } else {
     var ta=document.createElement('textarea'); ta.value=txt; ta.style.cssText='position:fixed;opacity:0';
@@ -544,78 +1010,49 @@ function expCopier() {
 function expImprimer() {
   getId('exp-menu').classList.remove('ouvert'); var s=expTrie();
   var date=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
-  var rows=s.map(function(it,i){ var m=i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1; return '<tr><td style="text-align:center;font-size:18px">'+m+'</td><td>'+(it.nom||'<em style="color:#aaa">Sans nom</em>')+'</td><td style="font-family:monospace;font-weight:700;text-align:right">'+fmtTemps(it.temps,2)+'</td></tr>'; }).join('');
+  var rows=s.map(function(it,i){
+    var m=i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1;
+    return '<tr><td style="text-align:center;font-size:18px">'+m+'</td>'+
+      '<td style="font-family:monospace;font-weight:700;color:#0af">'+(it.dossard||'—')+'</td>'+
+      '<td>'+(it.nom||'<em style="color:#aaa">Sans nom</em>')+'</td>'+
+      '<td style="font-family:monospace;font-weight:700;text-align:right">'+fmtTemps(it.temps,2)+'</td></tr>';
+  }).join('');
   var w=window.open('','_blank');
-  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ChronoClass</title><style>body{font-family:sans-serif;padding:32px;color:#111}h1{font-size:22px;margin-bottom:4px}.sub{color:#888;font-size:13px;margin-bottom:24px}table{width:100%;border-collapse:collapse}th{background:#f5f5f5;padding:10px 16px;text-align:left;font-size:12px;text-transform:uppercase}td{padding:10px 16px;border-bottom:1px solid #eee}tr:nth-child(even) td{background:#fafafa}</style></head><body><h1>ChronoClass — Résultats</h1><div class="sub">'+date+' — '+s.length+' participant'+(s.length>1?'s':'')+'</div><table><thead><tr><th>Rang</th><th>Prénom</th><th style="text-align:right">Temps</th></tr></thead><tbody>'+rows+'</tbody></table></body></html>');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ChronoClass</title><style>body{font-family:sans-serif;padding:32px;color:#111}h1{font-size:22px;margin-bottom:4px}.sub{color:#888;font-size:13px;margin-bottom:24px}table{width:100%;border-collapse:collapse}th{background:#f5f5f5;padding:10px 16px;text-align:left;font-size:12px;text-transform:uppercase}td{padding:10px 16px;border-bottom:1px solid #eee}tr:nth-child(even) td{background:#fafafa}</style></head><body><h1>ChronoClass — Résultats</h1><div class="sub">'+date+' — '+s.length+' participant'+(s.length>1?'s':'')+'</div><table><thead><tr><th>Rang</th><th>Dossard</th><th>Prénom</th><th style="text-align:right">Temps</th></tr></thead><tbody>'+rows+'</tbody></table></body></html>');
   w.document.close(); setTimeout(function(){ w.print(); },350);
 }
 function expPartager() {
   getId('exp-menu').classList.remove('ouvert'); var txt=expTexte();
-  if (navigator.share) { navigator.share({title:'ChronoClass',text:txt}).catch(function(){ expCopier(); }); }
+  if (navigator.share){ navigator.share({title:'ChronoClass',text:txt}).catch(function(){ expCopier(); }); }
   else expCopier();
 }
 
-/* ── Vocal ─────────────────────────────── */
-var recogObj=null, recogTmr=null;
-function recogStart() {
-  if (!arr.vocalOn) return;
-  var SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR) return;
-  recogObj=new SR(); recogObj.lang='fr-FR'; recogObj.continuous=false; recogObj.interimResults=false; recogObj.maxAlternatives=1;
-  recogObj.onresult=function(e){ vocalTraiter(e.results[0][0].transcript.trim().toLowerCase()); };
-  recogObj.onend=function(){ if(arr.vocalOn) recogTmr=setTimeout(recogStart,200); };
-  recogObj.onerror=function(e){ if(e.error==='no-speech'||e.error==='audio-capture'){ if(arr.vocalOn) recogTmr=setTimeout(recogStart,300); } else { vocalStop(); toast('🎤 Erreur : '+e.error,'var(--red)'); } };
-  try{recogObj.start();}catch(e){}
-}
-function vocalStop() {
-  clearTimeout(recogTmr); try{if(recogObj)recogObj.abort();}catch(e){}
-  recogObj=null; arr.vocalOn=false;
-  getId('ong-vocal').textContent='🎤 Vocal'; getId('ong-vocal').classList.remove('vocal-on');
-  getId('vocal-barre').classList.remove('actif');
-}
-function vToggle() {
-  if (!arr.vocalOn) {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) { toast('Vocal non disponible','var(--red)'); return; }
-    arr.vocalOn=true;
-    getId('ong-vocal').textContent='🔴 ON'; getId('ong-vocal').classList.add('vocal-on');
-    getId('vocal-barre').classList.add('actif');
-    recogStart(); toast('🎤 Vocal activé');
-  } else vocalStop();
-}
-function vocalTraiter(txt) {
-  getId('vocal-txt').textContent='"'+txt+'"'; setTimeout(function(){ getId('vocal-txt').textContent='Écoute…'; },1800);
-  if (/arriv[eé]e|suivant|next|top|passage/.test(txt)) { aRecord(); toast('📍 Arrivée !','var(--grn)'); return; }
-  if (/d[eé]marr|start|go/.test(txt) && !arr.actif) { aToggle(); return; }
-  if (/stop|arr[eê]t/.test(txt) && arr.actif) { aStop(); return; }
-  if (/reset|recommence/.test(txt)) { aReset(); return; }
-  var sansNom=null;
-  for(var i=arr.liste.length-1;i>=0;i--){ if(arr.liste[i].nom.trim()===''){sansNom=arr.liste[i];break;} }
-  var prenom=txt.charAt(0).toUpperCase()+txt.slice(1);
-  if (sansNom) { arrNom(sansNom.uid,prenom); arrRendre(); toast('✅ '+prenom); }
-  else { aRecord(); var last=arr.liste[arr.liste.length-1]; if(last){arrNom(last.uid,prenom);arrRendre();} toast('📍 '+prenom); }
-}
-
-/* ════════════════════════════════════════════════
-   MULTI-CHRONO
-════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════
+   PAGE 3 — MULTI-CHRONO
+═══════════════════════════════════════════════════════ */
 var CC=[['var(--cyan)','rgba(0,229,255,.22)'],['var(--orng)','rgba(255,107,53,.22)'],['var(--grn)','rgba(168,255,62,.22)'],['#ff3ea8','rgba(255,62,168,.22)'],['#ffe03e','rgba(255,224,62,.22)'],['#a03eff','rgba(160,62,255,.22)']];
 var mListe=[], mUid=0;
 
 function mAjouter() {
   var id=mUid++;
-  mListe.push({id:id, nom:'Élève '+(id+1), actif:false, debut:null, ecoule:0, raf:null});
+  mListe.push({id:id,nom:'Élève '+(id+1),actif:false,debut:null,ecoule:0,raf:null});
   mRendre();
 }
 function mMaj() {
   var n=mListe.length, ac=mListe.filter(function(c){return c.actif;}).length;
-  getId('multi-nb').textContent = n===0?'Aucun chrono':n+' chrono'+(n>1?'s':'')+' — '+ac+' en cours';
+  getId('multi-nb').textContent=n===0?'Aucun chrono':n+' chrono'+(n>1?'s':'')+' — '+ac+' en cours';
 }
 function mRendre() {
   var g=getId('multi-grille'); g.innerHTML=''; mMaj();
-  if (mListe.length===0) { g.innerHTML='<div class="multi-vide"><div class="multi-vide-ico">⏱️</div><p>Appuie sur <strong>Ajouter</strong> pour créer<br>un chrono par élève.<br>Chaque chrono est indépendant.</p></div>'; return; }
-  mListe.forEach(function(c){
+  if (mListe.length===0) {
+    g.innerHTML='<div class="multi-vide"><div class="multi-vide-ico">⏱️</div><p>Appuie sur <strong>Ajouter</strong> pour créer<br>un chrono par élève.<br>Chaque chrono est indépendant.</p></div>';
+    return;
+  }
+  mListe.forEach(function(c) {
     var cc=CC[c.id%CC.length][0], cg=CC[c.id%CC.length][1];
     var card=document.createElement('div');
-    card.className='carte'; card.id='carte-'+c.id; card.style.cssText='--cc:'+cc+';--cg:'+cg;
+    card.className='carte'; card.id='carte-'+c.id;
+    card.style.cssText='--cc:'+cc+';--cg:'+cg;
     card.innerHTML=
       '<div class="carte-top">'+
         '<input class="carte-nom" value="'+c.nom.replace(/"/g,'&quot;')+'" placeholder="Prénom…" '+
@@ -658,11 +1095,69 @@ function mSupp(id) {
   mListe=mListe.filter(function(x){return x.id!==id;}); mRendre();
 }
 
-/* ── Service Worker ────────────────────────── */
+
+/* ── fitGeant : chrono géant auto-sizing ──────────────
+   Mesure la zone .g-milieu et calcule la plus grande
+   fontSize qui tient en largeur ET en hauteur.
+   Appelé au load, resize, orientationchange, et
+   quand on revient sur l'onglet géant.
+─────────────────────────────────────────────────────── */
+function fitGeant() {
+  var milieu = document.querySelector('.g-milieu');
+  var elT = getId('g-temps');
+  var elC = getId('g-cs');
+  if (!milieu || !elT) return;
+
+  // Espace disponible (on réserve 15% pour g-etat + g-titre)
+  var availW = milieu.clientWidth  - 16;
+  var availH = milieu.clientHeight * 0.72;
+  if (availW < 10 || availH < 10) return;
+
+  // Taille max candidate : min(basé sur largeur, basé sur hauteur)
+  // "00:00" a ~5.2 caractères de large en Bebas Neue
+  var byW = Math.floor(availW / 2.85);   // ~3 chars larges
+  var byH = Math.floor(availH * 0.88);
+  var candidate = Math.min(byW, byH, 600);
+  candidate = Math.max(candidate, 48);
+
+  // Appliquer et vérifier le scroll
+  elT.style.fontSize = candidate + 'px';
+  elC.style.fontSize = Math.round(candidate * 0.36) + 'px';
+
+  // Affinage binaire si ça déborde
+  var lo = 48, hi = candidate;
+  while (hi - lo > 4) {
+    var mid = Math.round((lo + hi) / 2);
+    elT.style.fontSize = mid + 'px';
+    if (elT.scrollWidth <= availW && elT.offsetHeight <= availH) {
+      lo = mid;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  elT.style.fontSize = lo + 'px';
+  elC.style.fontSize = Math.round(lo * 0.36) + 'px';
+}
+
+// Déclencheurs
+window.addEventListener('resize', fitGeant);
+window.addEventListener('orientationchange', function(){ setTimeout(fitGeant, 350); });
+window.addEventListener('load', function(){ setTimeout(fitGeant, 120); });
+
+// Patch navVers pour relancer fitGeant quand on revient sur le géant
+(function(){
+  var _orig = navVers;
+  navVers = function(idx, btn) {
+    _orig(idx, btn);
+    if (idx === 0) setTimeout(fitGeant, 80);
+  };
+})();
+
+/* ── Service Worker ─────────────────────────────── */
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function(){
+  window.addEventListener('load',function(){
     navigator.serviceWorker.register('./sw.js')
-      .then(function(r){ console.log('[SW] OK',r.scope); })
+      .then(function(r){ console.log('[SW]',r.scope); })
       .catch(function(e){ console.warn('[SW]',e); });
   });
 }
